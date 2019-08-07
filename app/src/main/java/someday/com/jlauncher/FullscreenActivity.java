@@ -1,12 +1,24 @@
 package someday.com.jlauncher;
 
-import android.annotation.SuppressLint;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.AppCompatActivity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.Bitmap;
+import android.graphics.drawable.AdaptiveIconDrawable;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Handler;
-import android.view.MotionEvent;
+import android.util.Log;
 import android.view.View;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -14,85 +26,7 @@ import android.view.View;
  */
 public class FullscreenActivity extends AppCompatActivity
 {
-    /**
-     * Whether or not the system UI should be auto-hidden after
-     * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
-     */
-    private static final boolean AUTO_HIDE = true;
-
-    /**
-     * If {@link #AUTO_HIDE} is set, the number of milliseconds to wait after
-     * user interaction before hiding the system UI.
-     */
-    private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
-
-    /**
-     * Some older devices needs a small delay between UI widget updates
-     * and a change of the status and navigation bar.
-     */
-    private static final int UI_ANIMATION_DELAY = 300;
-    private final Handler mHideHandler = new Handler();
-    private View mContentView;
-    private final Runnable mHidePart2Runnable = new Runnable()
-    {
-        @SuppressLint("InlinedApi")
-        @Override
-        public void run()
-        {
-            // Delayed removal of status and navigation bar
-
-            // Note that some of these constants are new as of API 16 (Jelly Bean)
-            // and API 19 (KitKat). It is safe to use them, as they are inlined
-            // at compile-time and do nothing on earlier devices.
-            mContentView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE
-                    | View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
-        }
-    };
-    private View mControlsView;
-    private final Runnable mShowPart2Runnable = new Runnable()
-    {
-        @Override
-        public void run()
-        {
-            // Delayed display of UI elements
-            ActionBar actionBar = getSupportActionBar();
-            if (actionBar != null)
-            {
-                actionBar.show();
-            }
-            mControlsView.setVisibility(View.VISIBLE);
-        }
-    };
-    private boolean mVisible;
-    private final Runnable mHideRunnable = new Runnable()
-    {
-        @Override
-        public void run()
-        {
-            hide();
-        }
-    };
-    /**
-     * Touch listener to use for in-layout UI controls to delay hiding the
-     * system UI. This is to prevent the jarring behavior of controls going away
-     * while interacting with activity UI.
-     */
-    private final View.OnTouchListener mDelayHideTouchListener = new View.OnTouchListener()
-    {
-        @Override
-        public boolean onTouch(View view, MotionEvent motionEvent)
-        {
-            if (AUTO_HIDE)
-            {
-                delayedHide(AUTO_HIDE_DELAY_MILLIS);
-            }
-            return false;
-        }
-    };
+    private final String TAG = "FullscreenActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -100,86 +34,63 @@ public class FullscreenActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_fullscreen);
-
-        mVisible = true;
-        mControlsView = findViewById(R.id.fullscreen_content_controls);
-        mContentView = findViewById(R.id.fullscreen_content);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
 
-        // Set up the user interaction to manually show or hide the system UI.
-        mContentView.setOnClickListener(new View.OnClickListener()
+        for(ApplicationInfo app : queryFilterAppInfo())
         {
-            @Override
-            public void onClick(View view)
-            {
-                toggle();
-            }
-        });
 
-        // Upon interacting with UI controls, delay any scheduled hide()
-        // operations to prevent the jarring behavior of controls going away
-        // while interacting with the UI.
-        findViewById(R.id.dummy_button).setOnTouchListener(mDelayHideTouchListener);
-    }
+            Log.d(TAG, String.format(" appname: %s    ", app.loadLabel(getPackageManager())));
+//            Log.d(TAG, String.format(" appname: %s  flag %s ", app.loadLabel(getPackageManager()),app.flags));
+//            Log.d(TAG, String.format(" app logo: %s    ", getLogo(app).toString()));
+            Log.d(TAG, String.format(" app xml: %s    ", getPackageManager().getLaunchIntentForPackage(app.packageName)));
 
-    @Override
-    protected void onPostCreate(Bundle savedInstanceState)
-    {
-        super.onPostCreate(savedInstanceState);
 
-        // Trigger the initial hide() shortly after the activity has been
-        // created, to briefly hint to the user that UI controls
-        // are available.
-        delayedHide(100);
-    }
-
-    private void toggle()
-    {
-        if (mVisible)
-        {
-            hide();
-        } else
-        {
-            show();
         }
-    }
 
-    private void hide()
-    {
-        // Hide UI first
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null)
-        {
-            actionBar.hide();
-        }
-        mControlsView.setVisibility(View.GONE);
-        mVisible = false;
 
-        // Schedule a runnable to remove the status and navigation bar after a delay
-        mHideHandler.removeCallbacks(mShowPart2Runnable);
-        mHideHandler.postDelayed(mHidePart2Runnable, UI_ANIMATION_DELAY);
-    }
-
-    @SuppressLint("InlinedApi")
-    private void show()
-    {
-        // Show the system bar
-        mContentView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-        mVisible = true;
-
-        // Schedule a runnable to display UI elements after a delay
-        mHideHandler.removeCallbacks(mHidePart2Runnable);
-        mHideHandler.postDelayed(mShowPart2Runnable, UI_ANIMATION_DELAY);
     }
 
     /**
-     * Schedules a call to hide() in delay milliseconds, canceling any
-     * previously scheduled calls.
+     * 获取图标 bitmap
      */
-    private void delayedHide(int delayMillis)
+    public  Drawable getLogo(ApplicationInfo applicationInfo )
     {
-        mHideHandler.removeCallbacks(mHideRunnable);
-        mHideHandler.postDelayed(mHideRunnable, delayMillis);
+        return getPackageManager().getApplicationIcon(applicationInfo); //xxx根据自己的情况获取drawable
     }
+
+
+    private List<ApplicationInfo> queryFilterAppInfo() {
+        PackageManager pm = this.getPackageManager();
+        // 查询所有已经安装的应用程序
+        List<ApplicationInfo> appInfos = pm.getInstalledApplications(PackageManager.GET_UNINSTALLED_PACKAGES);// GET_UNINSTALLED_PACKAGES代表已删除，但还有安装目录的
+        List<ApplicationInfo> applicationInfos = new ArrayList<>();
+
+        // 创建一个类别为CATEGORY_LAUNCHER的该包名的Intent
+        Intent resolveIntent = new Intent(Intent.ACTION_MAIN, null);
+        resolveIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+
+        // 通过getPackageManager()的queryIntentActivities方法遍历,得到所有能打开的app的packageName
+        List<ResolveInfo> resolveinfoList = getPackageManager()
+                .queryIntentActivities(resolveIntent, 0);
+        Set<String> allowPackages = new HashSet();
+        for (ResolveInfo resolveInfo : resolveinfoList) {
+            allowPackages.add(resolveInfo.activityInfo.packageName);
+        }
+
+        for (ApplicationInfo app : appInfos) {
+//            if((app.flags & ApplicationInfo.FLAG_SYSTEM) <= 0)//通过flag排除系统应用，会将电话、短信也排除掉
+//            {
+//                applicationInfos.add(app);
+//            }
+//            if(app.uid > 10000){//通过uid排除系统应用，在一些手机上效果不好
+//                applicationInfos.add(app);
+//            }
+            if (allowPackages.contains(app.packageName)) {
+                applicationInfos.add(app);
+            }
+        }
+        return applicationInfos;
+    }
+
 }
